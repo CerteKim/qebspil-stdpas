@@ -11,6 +11,23 @@
 EFI_LOADED_IMAGE_PROTOCOL *LoadedImage;
 static EFI_EVENT ebs_event;
 
+/*
+ * How long to wait after starting the remoteprocs, before returning from
+ * ExitBootServices (after which slbounce performs the Secure Launch switch and
+ * takes the hypervisor away).
+ *
+ * The DSPs need a while to finish their handover with the hypervisor; a remote
+ * that is still in the middle of its boot does not survive the switch. That is
+ * observed on the Xiaomi Book S 12.4 (sc8180x) as "SMP2P ... -19" in the
+ * kernel: the same devicetree + firmware attaches on some boots and not on
+ * others, purely depending on how far the DSP got before the switch.
+ *
+ * FIXME: wait for the SMP2P ready signals instead of a fixed delay.
+ */
+#ifndef QEBSPIL_SETTLE_MS
+#define QEBSPIL_SETTLE_MS 5000
+#endif
+
 static EFI_STATUS efi_late_ebs(void)
 {
 	EFI_STATUS status;
@@ -20,14 +37,21 @@ static EFI_STATUS efi_late_ebs(void)
 	qlog("qebspil: pil_finish_all -> %r (EL%u)\n", status, current_el());
 	if (status == EFI_NOT_FOUND)
 		return EFI_SUCCESS; /* No rempteprocs found */
-	if (!EFI_ERROR(status))
-		return status;
 
 	/*
-	 * Wait a bit to let remoteprocs finish handover.
-	 * FIXME: Wait for the SMP2P signals instead
+	 * Let the remoteprocs settle *before* the switch: slbounce performs the
+	 * Secure Launch right after this returns, and whatever the hypervisor
+	 * was doing for the DSPs goes away with it. QEBSPIL_SETTLE_MS = 0
+	 * restores the old behaviour (return immediately on success).
 	 */
-	return BS->Stall(500 * 1000 * 1000);
+	if (QEBSPIL_SETTLE_MS > 0) {
+		qlog("qebspil: waiting %u ms for the remoteprocs to settle\n",
+		     (UINT32)QEBSPIL_SETTLE_MS);
+		BS->Stall((UINTN)QEBSPIL_SETTLE_MS * 1000);
+		qlog("qebspil: settle done (EL%u)\n", current_el());
+	}
+
+	return status;
 }
 
 static EFI_STATUS efi_dtb_changed(void)

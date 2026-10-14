@@ -31,7 +31,9 @@ EFI_LIBS	+= -lefi -lgnuefi
 FORMAT		:= -O efi-bsdrv-$(ARCH)
 
 QEBSPIL_ALWAYS_START	?= 0
+QEBSPIL_SETTLE_MS	?= 5000
 EFI_CFLAGS		+= -DQEBSPIL_ALWAYS_START=$(QEBSPIL_ALWAYS_START)
+EFI_CFLAGS		+= -DQEBSPIL_SETTLE_MS=$(QEBSPIL_SETTLE_MS)
 
 # SCM backend: "abl" = QcomScmProtocol / TZ_PIL_* (upstream qebspil behaviour),
 # "std" = the standard QCOM_SCM_SVC_PIL interface the Linux kernel uses.
