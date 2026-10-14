@@ -33,10 +33,25 @@ FORMAT		:= -O efi-bsdrv-$(ARCH)
 QEBSPIL_ALWAYS_START	?= 0
 EFI_CFLAGS		+= -DQEBSPIL_ALWAYS_START=$(QEBSPIL_ALWAYS_START)
 
+# SCM backend: "abl" = QcomScmProtocol / TZ_PIL_* (upstream qebspil behaviour),
+# "std" = the standard QCOM_SCM_SVC_PIL interface the Linux kernel uses.
+SCM_BACKEND	?= abl
+ifeq ($(SCM_BACKEND),std)
+EFI_CFLAGS	+= -DQEBSPIL_STD_PAS=1
+EFI_NAME	:= qebspilaa64-stdpas.efi
+else
+EFI_NAME	:= qebspilaa64.efi
+endif
+
+# Log the GUID of every installed EFI protocol (diagnostics for the ABL path).
+QEBSPIL_DUMP_PROTOCOLS	?= 0
+EFI_CFLAGS		+= -DQEBSPIL_DUMP_PROTOCOLS=$(QEBSPIL_DUMP_PROTOCOLS)
+
 QEBSPIL_OBJS := \
 	src/dtb.o \
 	src/event.o \
 	src/fw.o \
+	src/log.o \
 	src/main.o \
 	src/pil.o \
 	src/pil-types.o \
@@ -46,7 +61,7 @@ QEBSPIL_OBJS := \
 	src/external/lkfdt.o \
 
 .PHONY: all
-all: $(OUTDIR)/qebspilaa64.efi
+all: $(OUTDIR)/$(EFI_NAME)
 
 include $(CURDIR)/$(LIBFDT_DIR)/Makefile.libfdt
 QEBSPIL_OBJS += $(addprefix $(LIBFDT_DIR)/,$(LIBFDT_OBJS))
@@ -66,7 +81,7 @@ $(OUTDIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(HIDE)$(CC) $(INCDIR) $(CFLAGS) -c $< -o $@
 
-$(OUTDIR)/qebspilaa64.so: $(addprefix $(OUTDIR)/,$(QEBSPIL_OBJS)) | $(CRTOBJS)
+$(OUTDIR)/%.so: $(addprefix $(OUTDIR)/,$(QEBSPIL_OBJS)) | $(CRTOBJS)
 	@$(ECHO) "  LD       $(notdir $@)"
 	$(HIDE)$(LD) $(LDFLAGS) $^ -o $@ $(EFI_LIBS)
 

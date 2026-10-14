@@ -11,6 +11,28 @@ static const struct pil_type pil_types[] = {
 		.id[PIL_MAIN].full = 1
 	},
 
+	/*
+	 * Xiaomi Book S 12.4 (SC8180X). The DSPs are owned by the firmware and
+	 * Linux cannot reset them at EL2, so they have to be started here (while
+	 * the firmware services are still available) and then attached to.
+	 * PAS ids match the kernel's qcom_q6v5_pas resources.
+	 */
+	{
+		.compatible = "qcom,sc8180x-adsp-pas",
+		.id[PIL_MAIN].full = 1,
+		.proxy_guid = PIL_PROXY_ADSP_GUID,
+	},
+	{
+		.compatible = "qcom,sc8180x-cdsp-pas",
+		.id[PIL_MAIN].full = 18,
+		.proxy_guid = PIL_PROXY_CDSP_GUID,
+	},
+	{
+		.compatible = "qcom,sc8180x-slpi-pas",
+		.id[PIL_MAIN].full = 12,
+		.proxy_guid = PIL_PROXY_SLPI_GUID,
+	},
+
 	{
 		.compatible = "qcom,sc8280xp-adsp-pas",
 		.id[PIL_MAIN].full = 1,

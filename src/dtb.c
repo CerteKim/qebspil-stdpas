@@ -43,7 +43,7 @@ static EFI_STATUS dtb_load_pil_data(struct dtb_context *ctx, int node, struct pi
 	if (!fw_name)
 		return EFI_INVALID_PARAMETER;
 
-	Print(u"Firmware %d: base 0x%x, size 0x%x, path %a\n", idx, fw->mem_addr, fw->mem_size, fw_name);
+	qlog("Firmware %d: base 0x%x, size 0x%x, path %a\n", idx, fw->mem_addr, fw->mem_size, fw_name);
 	return fw_prepare(fw, ctx->root_dir, fw_name);
 }
 
@@ -71,7 +71,7 @@ static bool dtb_init_ctx(struct dtb_context *ctx)
 	if (!ctx->rmem_node) {
 		ctx->rmem_node = fdt_path_offset(ctx->dtb, "/reserved-memory");
 		if (ctx->rmem_node < 0) {
-			Print(u"qebspil: Failed to find /reserved-memory in DTB: %d\n", ctx->rmem_node);
+			qlog("qebspil: Failed to find /reserved-memory in DTB: %d\n", ctx->rmem_node);
 			return false;
 		}
 	}
@@ -79,7 +79,7 @@ static bool dtb_init_ctx(struct dtb_context *ctx)
 	if (!ctx->root_dir) {
 		ctx->root_dir = LibOpenRoot(LoadedImage->DeviceHandle);
 		if (!ctx->root_dir) {
-			Print(u"qebspil: Failed to open root volume. Not started from file?\n");
+			qlog("qebspil: Failed to open root volume. Not started from file?\n");
 			return false;
 		}
 	}
@@ -124,8 +124,10 @@ EFI_STATUS dtb_enumerate_rprocs(const void *dtb)
 	int ret;
 
 	ret = fdt_check_header(dtb);
-	if (ret)
+	if (ret) {
+		qlog("qebspil: bad DTB header: %d\n", ret);
 		return EFI_VOLUME_CORRUPTED;
+	}
 
 	while ((node = fdt_next_node(dtb, node, NULL)) >= 0) {
 		const struct pil_type *type;
@@ -147,27 +149,27 @@ EFI_STATUS dtb_enumerate_rprocs(const void *dtb)
 		if (!type)
 			continue;
 
-		Print(u"qebspil: Found remoteproc: %a\n", type->compatible);
+		qlog("qebspil: Found remoteproc: %a\n", type->compatible);
 
 		if (!dtb_init_ctx(&ctx))
 			return found;
 
 		pil = pil_alloc(type);
 		if (!pil) {
-			Print(u"Failed to allocate remoteproc %a\n", type->compatible);
+			qlog("Failed to allocate remoteproc %a\n", type->compatible);
 			continue;
 		}
 
 		status = dtb_enumerate_rproc(&ctx, node, pil);
 		if (EFI_ERROR(status)) {
-			Print(u"Failed to enumerate remoteproc %a: %r\n", type->compatible, status);
+			qlog("Failed to enumerate remoteproc %a: %r\n", type->compatible, status);
 			pil_free(pil);
 			continue;
 		}
 
 		status = pil_prepare(pil);
 		if (EFI_ERROR(status)) {
-			Print(u"Failed to prepare remoteproc PIL %a: %r\n", type->compatible, status);
+			qlog("Failed to prepare remoteproc PIL %a: %r\n", type->compatible, status);
 			pil_free(pil);
 			continue;
 		}
@@ -176,5 +178,6 @@ EFI_STATUS dtb_enumerate_rprocs(const void *dtb)
 	}
 
 	dtb_free_ctx(&ctx);
+	qlog("qebspil: rprocs enumerated, result %r\n", found);
 	return found;
 }

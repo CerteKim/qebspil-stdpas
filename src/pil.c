@@ -51,8 +51,6 @@ EFI_STATUS pil_proxy_vote(const EFI_GUID *guid)
 
 EFI_STATUS pil_prepare(struct pil *pil)
 {
-	EFI_STATUS status;
-
 	/* Make sure firmware was loaded for all components */
 	for (enum pil_component c = 0; c < PIL_COMPONENTS; c++) {
 		if (!pil_has_component(pil, c))
@@ -74,15 +72,23 @@ EFI_STATUS pil_prepare(struct pil *pil)
 	 * be shutting down so we can't really rely on it being available then.
 	 *
 	 * Thus we just vote early and hope the OS will drop the vote later.
+	 *
+	 * The standard PAS backend does not go through the firmware's PIL
+	 * proxy at all, so skip the vote there instead of failing on a
+	 * protocol the firmware may not provide.
 	 */
+#ifndef QEBSPIL_STD_PAS
 	if (!IsZeroGuid(&pil->type->proxy_guid)) {
-		status = pil_proxy_vote(&pil->type->proxy_guid);
+		EFI_STATUS status = pil_proxy_vote(&pil->type->proxy_guid);
+
 		if (EFI_ERROR(status)) {
-			Print(u"qebspil: Proxy vote failed for %a: %r\n",
+			qlog("qebspil: Proxy vote failed for %a: %r\n",
 			      pil->type->compatible, status);
 			return status;
 		}
+		qlog("qebspil: proxy vote ok for %a\n", pil->type->compatible);
 	}
+#endif
 
 	/*
 	 * We could move fw_check() and fw_load_metadata() here, but for now
@@ -96,7 +102,7 @@ static EFI_STATUS pil_finish(struct pil *pil)
 {
 	EFI_STATUS status;
 
-	Print(u"qebspil: Starting remoteproc: %a\n", pil->type->compatible);
+	qlog("qebspil: Starting remoteproc: %a\n", pil->type->compatible);
 
 	for (enum pil_component c = 0; c < PIL_COMPONENTS; c++) {
 		if (!pil_has_component(pil, c))
@@ -104,7 +110,7 @@ static EFI_STATUS pil_finish(struct pil *pil)
 
 		status = fw_check(&pil->fw[c]);
 		if (EFI_ERROR(status)) {
-			Print(u"qebspil: Firmware check failed for %a%a: %r\n",
+			qlog("qebspil: Firmware check failed for %a%a: %r\n",
 			      pil->type->compatible, pil_component_names[c], status);
 			return status;
 		}
@@ -116,7 +122,7 @@ static EFI_STATUS pil_finish(struct pil *pil)
 
 		status = fw_load_metadata(&pil->fw[c]);
 		if (EFI_ERROR(status)) {
-			Print(u"qebspil: Failed to load firmware metadata for %a%a: %r\n",
+			qlog("qebspil: Failed to load firmware metadata for %a%a: %r\n",
 			      pil->type->compatible, pil_component_names[c], status);
 			return status;
 		}
@@ -130,14 +136,14 @@ static EFI_STATUS pil_finish(struct pil *pil)
 
 		status = scm_pil_init(pil->type->id[c].full, fw->metadata);
 		if (EFI_ERROR(status)) {
-			Print(u"qebspil: Failed to init firmware for %a%a: %r (wrong firmware?)\n",
+			qlog("qebspil: Failed to init firmware for %a%a: %r (wrong firmware?)\n",
 			      pil->type->compatible, pil_component_names[c], status);
 			return status;
 		}
 
 		status = scm_pil_mem_setup(pil->type->id[c].full, fw->mem_addr, fw->mem_size);
 		if (EFI_ERROR(status)) {
-			Print(u"qebspil: Failed to setup memory area for %a%a: %r\n",
+			qlog("qebspil: Failed to setup memory area for %a%a: %r\n",
 			      pil->type->compatible, pil_component_names[c], status);
 			return status;
 		}
@@ -149,7 +155,7 @@ static EFI_STATUS pil_finish(struct pil *pil)
 
 		status = fw_load(&pil->fw[c]);
 		if (EFI_ERROR(status)) {
-			Print(u"qebspil: Failed to load firmware for %a%a: %r\n",
+			qlog("qebspil: Failed to load firmware for %a%a: %r\n",
 			      pil->type->compatible, pil_component_names[c], status);
 			return status;
 		}
@@ -170,7 +176,7 @@ static EFI_STATUS pil_finish(struct pil *pil)
 
 		status = scm_pil_start(pil->type->id[c].full);
 		if (EFI_ERROR(status)) {
-			Print(u"qebspil: Failed to authenticate and start firmware for %a%a: %r\n",
+			qlog("qebspil: Failed to authenticate and start firmware for %a%a: %r\n",
 			      pil->type->compatible, pil_component_names[c], status);
 
 			/* Rollback */
@@ -182,6 +188,7 @@ static EFI_STATUS pil_finish(struct pil *pil)
 		}
 	}
 
+	qlog("qebspil: started %a\n", pil->type->compatible);
 	return EFI_SUCCESS;
 }
 

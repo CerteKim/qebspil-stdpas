@@ -15,7 +15,9 @@ static EFI_STATUS efi_late_ebs(void)
 {
 	EFI_STATUS status;
 
+	qlog("qebspil: late ExitBootServices at EL%u\n", current_el());
 	status = pil_finish_all();
+	qlog("qebspil: pil_finish_all -> %r (EL%u)\n", status, current_el());
 	if (status == EFI_NOT_FOUND)
 		return EFI_SUCCESS; /* No rempteprocs found */
 	if (!EFI_ERROR(status))
@@ -33,6 +35,8 @@ static EFI_STATUS efi_dtb_changed(void)
 	EFI_STATUS status;
 	void *dtb;
 
+	qlog("qebspil: DTB callback at EL%u\n", current_el());
+
 	/* Free what we prepared last time in case the DTB changed */
 	pil_free_all();
 
@@ -43,6 +47,7 @@ static EFI_STATUS efi_dtb_changed(void)
 		return status;
 
 	status = dtb_enumerate_rprocs(dtb);
+	qlog("qebspil: dtb_enumerate_rprocs -> %r\n", status);
 	if (status == EFI_NOT_FOUND)
 		return EFI_SUCCESS; /* No remoteprocs found */
 	if (EFI_ERROR(status))
@@ -65,13 +70,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table)
 
 	InitializeLib(image, system_table);
 
-	Print(u"Hello World!\n");
+	qlog("Hello World!\n");
 
 	status = BS->HandleProtocol(image, &LoadedImageProtocol, (VOID**)&LoadedImage);
 	if (EFI_ERROR(status))
 		return status;
 
+	qlog("qebspil: efi_main (built %a %a), device handle %p, EL%u\n",
+	     __DATE__, __TIME__, LoadedImage->DeviceHandle, current_el());
+
 	status = scm_init();
+	qlog("qebspil: scm_init -> %r\n", status);
 	if (EFI_ERROR(status))
 		return status;
 

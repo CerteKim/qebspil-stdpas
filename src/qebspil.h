@@ -38,6 +38,17 @@ struct pil {
 
 extern EFI_LOADED_IMAGE_PROTOCOL *LoadedImage;
 
+void qlog(const char *fmt, ...);
+
+/* Are we below or above the hypervisor? Useful to see when slbounce switched. */
+static inline unsigned int current_el(void)
+{
+	unsigned long el;
+
+	__asm__ volatile("mrs %0, CurrentEL" : "=r"(el));
+	return (unsigned int)((el >> 2) & 3);
+}
+
 EFI_STATUS dtb_enumerate_rprocs(const void *dtb);
 
 typedef EFI_STATUS (*event_callback_fn)(void);
