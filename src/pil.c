@@ -192,6 +192,14 @@ static EFI_STATUS pil_finish(struct pil *pil)
 	return EFI_SUCCESS;
 }
 
+const struct pil *pil_loaded(UINTN index)
+{
+	if (index >= ARRAY_SIZE(loaded_pil) || !loaded_pil[index].type)
+		return NULL;
+
+	return &loaded_pil[index];
+}
+
 EFI_STATUS pil_finish_all(void)
 {
 	EFI_STATUS found = EFI_NOT_FOUND;

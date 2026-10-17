@@ -69,10 +69,13 @@ static inline BOOLEAN pil_has_component(const struct pil *pil, enum pil_componen
 struct pil *pil_alloc(const struct pil_type *type);
 EFI_STATUS pil_prepare(struct pil *pil);
 EFI_STATUS pil_finish_all(void);
+const struct pil *pil_loaded(UINTN index);
 void pil_free(struct pil *pil);
 void pil_free_all(void);
 
 const struct pil_type *pil_types_find(const char *compatible);
+
+EFI_STATUS smp2p_wait_for_remotes(void);
 
 EFI_STATUS scm_init(void);
 EFI_STATUS scm_pil_init(UINT8 pas_id, EFI_PHYSICAL_ADDRESS metadata);

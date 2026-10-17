@@ -28,6 +28,11 @@ static EFI_EVENT ebs_event;
 #define QEBSPIL_SETTLE_MS 5000
 #endif
 
+/* QEBSPIL_WAIT_SMP2P=1 polls the SMP2P "ready" entry instead of blind waiting */
+#ifndef QEBSPIL_WAIT_SMP2P
+#define QEBSPIL_WAIT_SMP2P 0
+#endif
+
 static EFI_STATUS efi_late_ebs(void)
 {
 	EFI_STATUS status;
@@ -44,6 +49,13 @@ static EFI_STATUS efi_late_ebs(void)
 	 * was doing for the DSPs goes away with it. QEBSPIL_SETTLE_MS = 0
 	 * restores the old behaviour (return immediately on success).
 	 */
+#if QEBSPIL_WAIT_SMP2P
+	if (!EFI_ERROR(smp2p_wait_for_remotes()))
+		return status;	/* every started remote is up: no need to wait */
+	qlog("qebspil: SMP2P wait incomplete, falling back to %u ms\n",
+	     (UINT32)QEBSPIL_SETTLE_MS);
+#endif
+
 	if (QEBSPIL_SETTLE_MS > 0) {
 		qlog("qebspil: waiting %u ms for the remoteprocs to settle\n",
 		     (UINT32)QEBSPIL_SETTLE_MS);

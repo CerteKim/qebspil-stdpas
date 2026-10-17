@@ -32,8 +32,10 @@ FORMAT		:= -O efi-bsdrv-$(ARCH)
 
 QEBSPIL_ALWAYS_START	?= 0
 QEBSPIL_SETTLE_MS	?= 5000
+QEBSPIL_WAIT_SMP2P	?= 0
 EFI_CFLAGS		+= -DQEBSPIL_ALWAYS_START=$(QEBSPIL_ALWAYS_START)
 EFI_CFLAGS		+= -DQEBSPIL_SETTLE_MS=$(QEBSPIL_SETTLE_MS)
+EFI_CFLAGS		+= -DQEBSPIL_WAIT_SMP2P=$(QEBSPIL_WAIT_SMP2P)
 
 # SCM backend: "abl" = QcomScmProtocol / TZ_PIL_* (upstream qebspil behaviour),
 # "std" = the standard QCOM_SCM_SVC_PIL interface the Linux kernel uses.
@@ -58,6 +60,7 @@ QEBSPIL_OBJS := \
 	src/pil.o \
 	src/pil-types.o \
 	src/scm.o \
+	src/smp2p.o \
 	src/external/cache.o \
 	src/external/libc.o \
 	src/external/lkfdt.o \
